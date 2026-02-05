@@ -25,7 +25,7 @@ accelerate==0.27.2
 # LlamaIndex (LOCKED, STABLE)
 # -------------------------
 llama-index==0.10.30
-llama-index-core==0.14.13
+llama-index-core==0.11.0
 llama-index-embeddings-huggingface==0.6.1
 llama-index-llms-huggingface==0.6.1
 llama-index-llms-groq==0.4.1
