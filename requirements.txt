@@ -24,12 +24,12 @@ accelerate==0.27.2
 # -------------------------
 # LlamaIndex (LOCKED, STABLE)
 # -------------------------
-llama-index==0.10.30
+llama-index==0.13.2
 llama-index-embeddings-huggingface==0.6.1
 llama-index-llms-huggingface==0.6.1
 llama-index-llms-groq==0.4.1
 llama-index-llms-gemini==0.6.2
-llama-index-readers-file==0.1.23
+llama-index-readers-file==0.1.33
 
 # -------------------------
 # Gemini (optional, safe)
