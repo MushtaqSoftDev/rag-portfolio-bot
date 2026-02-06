@@ -7,7 +7,7 @@ from llama_index.core import (
 )
 from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.core.retrievers import VectorIndexRetriever
-from llama_index.readers.file import SimpleDirectoryReader
+from llama_index.core.readers import SimpleDirectoryReader
 
 # Force settings to load (LLM selection happens here)
 import app.settings  # noqa
