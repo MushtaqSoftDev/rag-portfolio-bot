@@ -11,7 +11,7 @@ class ChatRequest(BaseModel):
 @router.post("/chat")
 async def chat(req: ChatRequest):
     try:
-        answer = ask_question(req.question)
+        answer = await ask_question(req.question)
         return {"answer": answer}
 
     except Exception as e:
