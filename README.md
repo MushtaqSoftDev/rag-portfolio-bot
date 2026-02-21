@@ -1,11 +1,21 @@
 🤖 RAG Portfolio Backend
 
-A high-performance Retrieval-Augmented Generation (RAG) backend designed to power a 3D portfolio. This system allows users to interact with Mushtaq professional data via a smart chat interface, ensuring responses are grounded in real project data.
+A high-performance Retrieval-Augmented Generation (RAG) backend designed to power a 3D portfolio. This system allows users to interact with Mushtaq's professional data via a smart chat interface, ensuring responses are grounded in real project data.
+
+## Agentic RAG (not Linear RAG)
+
+This project uses **Agentic RAG**: a single ReAct agent that chooses between tools instead of a linear “retrieve → answer” pipeline. The agent can:
+
+- **RAG (mushtaq_docs)** — Answer from indexed portfolio data (projects, experience, skills).
+- **GitHub (get_repo_tech_stack)** — Fetch live language/tech stack for Mushtaq’s repos.
+- **Discord (notify_mushtaq)** — Send contact/hire requests to Mushtaq via Discord when the user provides name, message, and contact.
+
+So it’s **one agent, one LLM, multiple tools** — with Multi-LLM support, and no longer a simple linear RAG flow.
 
 🏗️ Architecture
 
     Framework: FastAPI (Python)
-    RAG Engine: LlamaIndex
+    RAG: LlamaIndex (Agentic — ReAct agent + RAG + tools)
     Data Source: Local markdown/text files in /data
     Deployment: Render.com (Free Tier)
     Persistence: Local disk storage in /storage (persisted index)
@@ -38,17 +48,22 @@ The engine is configured with a custom system prompt that prevents "hallucinatio
 
 
 📁 Project Structure
+
+```
 ├── app/
-│   ├── api.py          # API Route definitions (/chat)
-│   ├── rag_engine.py   # LlamaIndex logic (indexing & querying)
-│   ├── settings.py     # Global configuration & LLM Fallback logic
-│
-|__ data                # Portfolio source documents (MD)
-|__ scripts             # Make ingestion & script to test locally
+│   ├── __init__.py
+│   ├── api.py          # API route definitions (/chat)
+│   ├── rag_engine.py   # Agentic RAG: ReAct agent, index, tools wiring
+│   ├── settings.py     # LLM selection & embed model config
+│   └── tools.py        # GitHub tech-stack tool & Discord recruiter (notify_mushtaq)
+├── data/               # Portfolio source documents (markdown)
+├── scripts/            # Build index, test query (local)
 ├── storage/            # Persisted vector index files
 ├── main.py             # FastAPI entry point & Health Check
 ├── requirements.txt    # Project dependencies
-└── Dockerfile          # Container configuration for Render
+├── Dockerfile          # Container config for Render
+└── docker-compose.yml  # Local run with Docker
+```
 
 
 🛠️ Installation & Setup
@@ -61,6 +76,8 @@ The engine is configured with a custom system prompt that prevents "hallucinatio
     Create a .env file in the root directory:
     GOOGLE_API_KEY=your_gemini_api_key
     GROQ_API_KEY=your_groq_api_key
+    DISCORD_WEBHOOK_URL=your_discord_webhook   # Optional: for recruiter/contact notifications
+    MUSHTAQ_EMAIL=your_email                  # Optional: overrides contact email in hire/contact replies
 
     3. Install Dependencies
     pip install -r requirements.txt

@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from llama_index.core import (
@@ -53,19 +54,29 @@ retriever = VectorIndexRetriever(
     similarity_top_k=3,
 )
 
-STRICT_SYSTEM_PROMPT = """You are Mushtaq's Portfolio AI Assistant.
+# Contact email: show for hire/contact intents (configurable via env)
+MUSHTAQ_EMAIL = os.getenv("MUSHTAQ_EMAIL", "mushtaquok70@gmail.com")
+
+STRICT_SYSTEM_PROMPT = f"""You are Mushtaq's Portfolio AI Assistant.
 
     IDENTITY RULES:
-    - If the user asks general knowledge (e.g., 'Capital city of country', 'math', ''weater), you MUST refuse and say: "I am Mushtaq's portfolio assistant. I can discuss his work, projects and expertise."
-    - Do NOT answer any question that is not about Mushtaq.
+    - If the user asks general knowledge (e.g., capital of a country, math, weather, history, science, or anything not about Mushtaq), refuse in a friendly way. Say something like: "I'm Mushtaq's portfolio assistant — I can only chat about his work, projects and expertise. What would you like to know about him?"
+    - Do NOT use phrases like "I'm afraid" or "I don't have information". Keep the tone warm and helpful.
+    - Do NOT answer any question that is not about Mushtaq. Refuse briefly and redirect.
 
     GITHUB TOOL RULES:
-    - You havea a tool 'get_repo_tech_stack'.
-    - If a user asks for details about Mushtaq's AI/ML models or specific projects, you MUST use this tool.
+    - You have a tool 'get_repo_tech_stack(repo_name)' that fetches live language/tech data from GitHub.
+    - When the user asks which languages or technologies Mushtaq uses in a project (e.g. "Java project", "Python project"), you MUST call get_repo_tech_stack with the repo name. Do NOT answer from memory or RAG only — use the tool for accurate, up-to-date tech stack.
+    - Repo name mapping: Java project -> 'JavaFinchRobot', Python/Flask -> 'PythonFlask', AI/ML -> 'PyTorch', portfolio -> 'rag-portfolio-bot' or 'portfolio', Vue -> 'VueProject', NetSim -> 'NetSimulator', event scheduler -> 'event-scheduler', Master Informatica -> 'MasterInformatica'.
     - Known Repos: 'PyTorch', 'PythonFlask', 'rag-portfolio-bot', 'NetSimulator', 'event-scheduler', 'MasterInformatica', 'VueProject', 'JavaFinchRobot', 'portfolio'.
 
-    RECRUITER RULES:
-    - If someone wants to contact Mushtaq, DO NOT use 'notify_mushtaq' until you have their Name, Company, and Contact Info.
+    HIRE / CONTACT RULES (IMPORTANT — Mushtaq is searching for jobs):
+    - When the user asks how to hire/contact Mushtaq (e.g. "how can I hire mushtaq?") WITHOUT giving their own details, do NOT call notify_mushtaq. Instead reply with:
+      1. Mushtaq's email: {MUSHTAQ_EMAIL}
+      2. Say: "You can email him with details about the role, your contact info, and a short message. He'll get back to you."
+      3. Optionally add: "If you share your name, company, and contact here, I can also notify him via Discord."
+    - ONLY call 'notify_mushtaq(visitor_name, message, contact_info)' when the user has EXPLICITLY provided in this chat: their name (or company), a message (e.g. about the role/work), and contact (email or LinkedIn). If they only asked "how can I hire?" or "how to contact?" and did not give their name/message/contact, do NOT call the tool — just give the email and the instructions above.
+    - When you do call notify_mushtaq, use real values from the user's message for visitor_name, message, and contact_info. Never use placeholders like "unknown" or "N/A".
     """
 
 # agent_system_prompt = PromptTemplate(STRICT_SYSTEM_PROMPT)
@@ -102,15 +113,48 @@ agent = ReActAgent(
 
 # 3.3 Update the ask_question function
 
+# Fixed response for hire/contact so email and instructions are always shown (LLM often ignores prompt)
+HIRE_CONTACT_RESPONSE = (
+    f"You can reach Mushtaq at **{MUSHTAQ_EMAIL}**. "
+    "Email him with details about the role, your contact info, and a short message — he'll get back to you. "
+    "If you share your name, company, and contact here, I can also notify him via Discord."
+)
+
+
+def _is_hire_contact_only(question: str) -> bool:
+    """True if the question is about hiring/contacting Mushtaq but doesn't provide recruiter details."""
+    q = question.lower().strip()
+    hire_contact = any(
+        x in q for x in (
+            "hire mushtaq", "hire him", "how to hire", "how can i hire",
+            "contact mushtaq", "contact him", "how to contact", "how can i contact",
+            "reach mushtaq", "get in touch", "recruit", "job for mushtaq",
+            "want to hire", "looking to hire", "interested in hiring"
+        )
+    )
+    if not hire_contact:
+        return False
+    # They're providing details if they include email, "my name", "i'm from", "contact me at", etc.
+    has_details = (
+        "@" in question or "my name is" in q or "i'm " in q or "im " in q
+        or "contact me" in q or "reach me" in q or "linkedin" in q
+        or "from " in q and ("company" in q or "recruiter" in q)
+    )
+    return not has_details
+
+
 async def ask_question(question: str) -> str:
-    # Using agent.chat instead of query_engine.query
-    #response = query_engine.query(question)
+    # Guarantee hire/contact response includes email and "send details" (backend rule)
+    if _is_hire_contact_only(question):
+        return HIRE_CONTACT_RESPONSE
+
+    # Reinforce scope in every request so the agent refuses off-topic questions
     instructional_query = (
-        f"Remember: You are Mushtaq's Assistant. Only answer if relevant to him. "
+        f"Remember: You are Mushtaq's Assistant. Only answer if the question is about Mushtaq (his work, projects, experience). "
+        f"If the question is general knowledge or not about him, refuse and say you can only discuss Mushtaq. "
         f"Question: {question}"
     )
-     
-    handler = agent.run(user_msg=question)
+    handler = agent.run(user_msg=instructional_query)
 
     # Wait the handler get the actual result
     response = await handler
